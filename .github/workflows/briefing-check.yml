@@ -1,0 +1,38 @@
+name: Briefing check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  briefing-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Markdown sanity check
+        run: |
+          set -euo pipefail
+          echo "Running markdown sanity check on briefings..."
+          failed=0
+          # Every briefing must contain a References section and a GHSA ID.
+          shopt -s globstar nullglob
+          for f in docs/**/*.md docs/*.md README.md; do
+            echo "Checking ${f}"
+            if ! grep -q -E '^## References' "${f}"; then
+              # README may omit a formal References section; only enforce on docs/
+              if [[ "${f}" == docs/* ]]; then
+                echo "::error file=${f}::missing '## References' section"
+                failed=1
+              fi
+            fi
+            if [[ "${f}" == docs/* ]] && ! grep -q 'GHSA-' "${f}"; then
+              echo "::error file=${f}::missing GHSA identifier"
+              failed=1
+            fi
+          done
+          if [ "${failed}" -ne 0 ]; then
+            echo "Briefing check FAILED"
+            exit 1
+          fi
+          echo "Briefing check passed"
